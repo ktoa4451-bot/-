@@ -1,23 +1,24 @@
 -- =========================================================
--- ANOINTING MENU (Автообновление v1.2)
+-- ANOINTING MENU v1.3 (Исправленный)
 -- =========================================================
 
 local ScriptName = "Anointing Menu"
-local ScriptVersion = "1.2"
+local ScriptVersion = "1.3"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
+-- Настройки по умолчанию (можно менять)
+local JumpMultiplier = 3  -- Во сколько раз выше обычного прыжка
+local KillAuraRadius = 15 -- Радиус убийства (метров)
+
 -- =========================================================
--- СИСТЕМА АВТООБНОВЛЕНИЯ
+-- АВТООБНОВЛЕНИЕ
 -- =========================================================
 local function CheckForUpdate()
-    local success, result = pcall(function()
-        return game:HttpGet(RawURL)
-    end)
-    
+    local success, result = pcall(function() return game:HttpGet(RawURL) end)
     if success then
         local newVersion = string.match(result, 'ScriptVersion%s*=%s*"([^"]+)"')
         if newVersion and newVersion ~= ScriptVersion then
-            print("Найдено обновление! Версия " .. newVersion .. ". Загружаем...")
+            print("Найдено обновление v" .. newVersion)
             loadstring(result)()
             return true
         end
@@ -28,7 +29,7 @@ end
 if CheckForUpdate() then return end
 
 -- =========================================================
--- ОСНОВНОЕ МЕНЮ
+-- МЕНЮ
 -- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
@@ -37,8 +38,8 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 330)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -165)
+MainFrame.Size = UDim2.new(0, 250, 0, 290)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -145)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -50,23 +51,19 @@ Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Title.Text = "Anointing Menu"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
-Title.Font = Enum.Font.GothamBold
 
--- СВОРАЧИВАНИЕ МЕНЮ ПО КЛИКУ НА ЗАГОЛОВОК
+-- Сворачивание по клику на заголовок
 local isCollapsed = false
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         isCollapsed = not isCollapsed
         for _, child in pairs(MainFrame:GetChildren()) do
-            if child ~= Title then
-                child.Visible = not isCollapsed
-            end
+            if child ~= Title then child.Visible = not isCollapsed end
         end
-        MainFrame.Size = isCollapsed and UDim2.new(0, 260, 0, 40) or UDim2.new(0, 260, 0, 330)
+        MainFrame.Size = isCollapsed and UDim2.new(0, 250, 0, 40) or UDim2.new(0, 250, 0, 290)
     end
 end)
 
--- Перетаскивание
 MainFrame.Draggable = true
 
 local function CreateToggle(yPos, label, callback)
@@ -79,7 +76,6 @@ local function CreateToggle(yPos, label, callback)
     local Label = Instance.new("TextLabel")
     Label.Parent = ToggleFrame
     Label.Size = UDim2.new(0.6, 0, 1, 0)
-    Label.Position = UDim2.new(0, 0, 0, 0)
     Label.Text = label
     Label.TextColor3 = Color3.new(1, 1, 1)
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -103,98 +99,110 @@ local function CreateToggle(yPos, label, callback)
 end
 
 local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
 
 -- =========================================================
 -- ФУНКЦИИ МЕНЮ
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ (Снижена до 35)
+-- 1. СУПЕР СКОРОСТЬ
 CreateToggle(50, "Super Speed", function(state)
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = state and 35 or 16
-    end
+    humanoid.WalkSpeed = state and 35 or 16
 end)
 
--- 2. СУПЕР ПРЫЖОК (Умножение на 15. Название чистое)
+-- 2. СУПЕР ПРЫЖОК (Снижен до 3x)
 CreateToggle(90, "Super Jump", function(state)
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = state and (16 * 15) or 50
-    end
+    humanoid.JumpPower = state and (16 * JumpMultiplier) or 50
 end)
 
--- 3. ИНФИНИТИ ДЖАМП (Исправленный)
+-- 3. ИНФИНИТИ ДЖАМП (Полностью переписан, мягкий)
+local infJumpLoop = nil
 CreateToggle(130, "Infinite Jump", function(state)
     if state then
-        task.spawn(function()
+        infJumpLoop = task.spawn(function()
             while state do
-                local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-                if hum and hum.PlatformStand == false then
-                    hum.Jump = true 
-                end
-                task.wait()
-            end
-        end)
-    end
-end)
-
--- 4. НОУКЛИП (Noclip)
-CreateToggle(170, "Noclip", function(state)
-    local char = player.Character
-    if char then
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.CanCollide = not state
-        end
-    end
-end)
-
--- 5. ESP (Просто ESP, без Wallhack)
-CreateToggle(210, "ESP", function(state)
-    task.spawn(function()
-        while state do
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    if not p.Character:FindFirstChild("ESP_Highlight") then
-                        local hl = Instance.new("Highlight")
-                        hl.Name = "ESP_Highlight"
-                        hl.Parent = p.Character
-                        hl.FillColor = Color3.fromRGB(255, 0, 0)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.FillTransparency = 0.5
+                local currentChar = player.Character
+                if currentChar and currentChar:FindFirstChild("Humanoid") and currentChar:FindFirstChild("HumanoidRootPart") then
+                    local hum = currentChar.Humanoid
+                    if not hum.FloorMaterial then
+                        hum.Jump = true
                     end
                 end
+                task.wait(0.01)
             end
-            task.wait(0.5)
-        end
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("ESP_Highlight") then
-                p.Character.ESP_Highlight:Destroy()
-            end
-        end
-    end)
+        end)
+    else
+        if infJumpLoop then task.cancel(infJumpLoop) end
+    end
 end)
 
--- 6. АВТО-УДАР (Triggerbot. Бьет, когда крестик красный / наведен на врага)
-CreateToggle(250, "Auto Attack (Trigger)", function(state)
+-- 4. НОУКЛИП (Исправлен)
+CreateToggle(170, "Noclip", function(state)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CanCollide = not state
+    end
+end)
+
+-- 5. ESP (Стабильный, без вылетов через 10 минут)
+local espLoop = nil
+CreateToggle(210, "ESP", function(state)
+    if state then
+        espLoop = task.spawn(function()
+            while state do
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= player and p.Character then
+                        if not p.Character:FindFirstChild("ESP_HL") then
+                            local hl = Instance.new("Highlight")
+                            hl.Name = "ESP_HL"
+                            hl.Parent = p.Character
+                            hl.FillColor = Color3.fromRGB(255, 0, 0)
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            hl.FillTransparency = 0.5
+                        end
+                    end
+                end
+                task.wait(0.8)
+            end
+        end)
+    else
+        if espLoop then task.cancel(espLoop) end
+        -- Очистка
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("ESP_HL") then
+                p.Character.ESP_HL:Destroy()
+            end
+        end
+    end
+end)
+
+-- 6. КИЛЛ АУРА (Вместо авто-атаки)
+CreateToggle(250, "Kill Aura", function(state)
     if state then
         task.spawn(function()
             while state do
-                local target = mouse.Target
-                if target then
-                    local parent = target.Parent
-                    if parent:IsA("Model") and parent:FindFirstChild("Humanoid") and parent ~= player.Character then
-                        -- Эмулируем нажатие мыши для автоатаки
-                        mouse1click()
+                local currentChar = player.Character
+                if currentChar and currentChar:FindFirstChild("HumanoidRootPart") then
+                    local rootPos = currentChar.HumanoidRootPart.Position
+                    for _, p in pairs(game.Players:GetPlayers()) do
+                        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                            local targetRoot = p.Character.HumanoidRootPart
+                            local dist = (rootPos - targetRoot.Position).Magnitude
+                            if dist < KillAuraRadius then
+                                -- Эмуляция удара (в простых играх сработает)
+                                p.Character.Humanoid.Health = 0
+                            end
+                        end
                     end
                 end
-                task.wait(0.05)
+                task.wait(0.1)
             end
         end)
     end
 end)
 
--- Закрытие меню по ПКМ (правая кнопка мыши)
+-- Закрыть меню по ПКМ
 local UIS = game:GetService("UserInputService")
 UIS.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
