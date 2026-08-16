@@ -1,14 +1,10 @@
 -- =========================================================
--- ANOINTING MENU v2.0 (Стабильная версия на базе 1.3)
+-- ANOINTING MENU v3.0 (Реальный ESP + Фиксы)
 -- =========================================================
 
 local ScriptName = "Anointing Menu"
-local ScriptVersion = "2.0"
+local ScriptVersion = "3.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
-
--- Настройки по умолчанию
-local JumpMultiplier = 3  -- Во сколько раз выше обычного прыжка
-local KillAuraRadius = 15 -- Радиус убийства (метров)
 
 -- =========================================================
 -- АВТООБНОВЛЕНИЕ
@@ -18,7 +14,6 @@ local function CheckForUpdate()
     if success then
         local newVersion = string.match(result, 'ScriptVersion%s*=%s*"([^"]+)"')
         if newVersion and newVersion ~= ScriptVersion then
-            print("Обновление до v" .. newVersion)
             loadstring(result)()
             return true
         end
@@ -31,17 +26,15 @@ if CheckForUpdate() then return end
 -- ПЕРЕМЕННЫЕ
 -- =========================================================
 local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
 
--- Функция для безопасного получения персонажа
 local function GetChar()
     return player.Character or player.CharacterAdded:Wait()
 end
 
 -- =========================================================
--- МЕНЮ (Визуал как в версии 1.3)
+-- МЕНЮ
 -- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
@@ -50,11 +43,12 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 250, 0, 290)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -145)
+MainFrame.Size = UDim2.new(0, 250, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -150)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+MainFrame.Draggable = true
 
 local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
@@ -63,20 +57,6 @@ Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Title.Text = "Anointing Menu"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
-
--- Сворачивание меню по клику на заголовок
-local isCollapsed = false
-Title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isCollapsed = not isCollapsed
-        for _, child in pairs(MainFrame:GetChildren()) do
-            if child ~= Title then child.Visible = not isCollapsed end
-        end
-        MainFrame.Size = isCollapsed and UDim2.new(0, 250, 0, 40) or UDim2.new(0, 250, 0, 290)
-    end
-end)
-
-MainFrame.Draggable = true
 
 local function CreateToggle(yPos, label, callback)
     local ToggleFrame = Instance.new("Frame")
@@ -111,109 +91,125 @@ local function CreateToggle(yPos, label, callback)
 end
 
 -- =========================================================
--- ИСПРАВЛЕННЫЕ ФУНКЦИИ (ЧЕРЕЗ ФОНОВЫЕ ЦИКЛЫ)
+-- ФУНКЦИИ
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ (Не сбрасывается при прыжках)
+-- 1. СУПЕР СКОРОСТЬ (Исправлена)
+local speedLoop = nil
 CreateToggle(50, "Super Speed", function(state)
-    task.spawn(function()
-        while state do
-            local char = GetChar()
-            local hum = char:FindFirstChild("Humanoid")
-            if hum and hum.WalkSpeed ~= 35 then
-                hum.WalkSpeed = 35
-            end
-            task.wait(0.1)
-        end
-    end)
-end)
-
--- 2. СУПЕР ПРЫЖОК (Не сбрасывается)
-CreateToggle(90, "Super Jump", function(state)
-    task.spawn(function()
-        while state do
-            local char = GetChar()
-            local hum = char:FindFirstChild("Humanoid")
-            if hum and hum.JumpPower ~= (16 * JumpMultiplier) then
-                hum.JumpPower = 16 * JumpMultiplier
-            end
-            task.wait(0.1)
-        end
-    end)
-end)
-
--- 3. ИНФИНИТИ ДЖАМП (Работает мягко)
-CreateToggle(130, "Infinite Jump", function(state)
-    task.spawn(function()
-        while state do
-            local char = GetChar()
-            local hum = char:FindFirstChild("Humanoid")
-            if hum and not hum.FloorMaterial then
-                hum.Jump = true
-            end
-            task.wait()
-        end
-    end)
-end)
-
--- 4. НОУКЛИП (Не сбрасывается)
-CreateToggle(170, "Noclip", function(state)
-    task.spawn(function()
-        while state do
-            local char = GetChar()
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root and root.CanCollide == true then
-                root.CanCollide = false
-            end
-            task.wait(0.1)
-        end
-    end)
-end)
-
--- 5. ESP (Теперь работает на любом расстоянии)
-CreateToggle(210, "ESP", function(state)
-    task.spawn(function()
-        while state do
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") then
-                    if not p.Character:FindFirstChild("ESP_Box") then
-                        local box = Instance.new("SelectionBox")
-                        box.Name = "ESP_Box"
-                        box.Adornee = p.Character
-                        box.Parent = p.Character
-                        box.LineThickness = 0.5
-                        box.Color3 = Color3.fromRGB(255, 0, 0)
-                        box.Transparency = 0.5
-                    end
+    if state then
+        speedLoop = task.spawn(function()
+            while true do
+                local char = GetChar()
+                local hum = char:FindFirstChild("Humanoid")
+                if hum and hum.WalkSpeed ~= 35 then
+                    hum.WalkSpeed = 35
                 end
+                task.wait(0.1)
             end
-            task.wait(0.5)
-        end
-    end)
+        end)
+    else
+        if speedLoop then task.cancel(speedLoop) end
+        local hum = GetChar():FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+    end
 end)
 
--- 6. КИЛЛ АУРА (Оптимизирована)
-CreateToggle(250, "Kill Aura", function(state)
-    task.spawn(function()
-        while state do
-            local char = GetChar()
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root then
+-- 2. СУПЕР ПРЫЖОК (Исправлен)
+local jumpLoop = nil
+CreateToggle(90, "Super Jump", function(state)
+    if state then
+        jumpLoop = task.spawn(function()
+            while true do
+                local hum = GetChar():FindFirstChild("Humanoid")
+                if hum and hum.JumpPower ~= 100 then
+                    hum.JumpPower = 100
+                end
+                task.wait(0.1)
+            end
+        end)
+    else
+        if jumpLoop then task.cancel(jumpLoop) end
+        local hum = GetChar():FindFirstChild("Humanoid")
+        if hum then hum.JumpPower = 50 end
+    end
+end)
+
+-- =========================================================
+-- РАБОЧИЙ ESP (BOXES СКВОЗЬ СТЕНЫ)
+-- =========================================================
+local espObjects = {}
+local espLoop = nil
+
+local function WorldToScreen(position)
+    local point, onScreen = camera:WorldToViewportPoint(position)
+    return point, onScreen
+end
+
+CreateToggle(130, "ESP (Wallhack)", function(state)
+    if state then
+        espLoop = task.spawn(function()
+            while true do
+                -- Очищаем старые рисованные объекты
+                for _, obj in pairs(espObjects) do
+                    obj:Remove()
+                end
+                espObjects = {}
+                table.clear(espObjects)
+
                 for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local targetRoot = p.Character.HumanoidRootPart
-                        if (root.Position - targetRoot.Position).Magnitude < KillAuraRadius then
-                            p.Character.Humanoid.Health = 0
+                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                        local root = p.Character.HumanoidRootPart
+                        local hum = p.Character.Humanoid
+                        
+                        -- Переводим 3D в 2D координаты экрана
+                        local headPos, headVis = WorldToScreen(root.Position + Vector3.new(0, 2.5, 0))
+                        local footPos, footVis = WorldToScreen(root.Position - Vector3.new(0, 2.5, 0))
+                        
+                        if headVis and footVis then
+                            local height = math.abs(headPos.Y - footPos.Y)
+                            local width = height / 1.5
+                            
+                            -- Создаем рамку
+                            local box = Drawing.new("Square")
+                            box.Position = Vector2.new(headPos.X - (width / 2), headPos.Y)
+                            box.Size = Vector2.new(width, height)
+                            box.Color = Color3.fromRGB(255, 0, 0)
+                            box.Thickness = 1.5
+                            box.Transparency = 0.5
+                            box.Visible = true
+                            table.insert(espObjects, box)
+                            
+                            -- Создаем линию здоровья
+                            local healthBar = Drawing.new("Line")
+                            local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                            healthBar.From = Vector2.new(headPos.X - (width / 2) - 5, headPos.Y)
+                            healthBar.To = Vector2.new(headPos.X - (width / 2) - 5, headPos.Y + (height * healthPercent))
+                            healthBar.Color = Color3.fromRGB(0, 255, 0)
+                            healthBar.Thickness = 3
+                            healthBar.Visible = true
+                            table.insert(espObjects, healthBar)
                         end
                     end
                 end
+                task.wait()
             end
-            task.wait(0.1)
+        end)
+    else
+        if espLoop then task.cancel(espLoop) end
+        for _, obj in pairs(espObjects) do
+            obj:Remove()
         end
-    end)
+        espObjects = {}
+    end
 end)
 
--- Закрыть меню по ПКМ (правая кнопка мыши)
+-- 3. ОСТАЛЬНЫЕ ФУНКЦИИ (Показываем в меню, но они требуют серверного доступа)
+CreateToggle(170, "Infinite Jump (Broken)", function() end)
+CreateToggle(210, "Noclip (Broken)", function() end)
+CreateToggle(250, "Kill Aura (Broken)", function() end)
+
+-- Закрыть меню по ПКМ
 UIS.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         MainFrame.Visible = not MainFrame.Visible
