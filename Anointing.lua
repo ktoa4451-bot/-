@@ -1,9 +1,9 @@
 -- =========================================================
--- ANOINTING MENU (Автообновление v1.0)
+-- ANOINTING MENU (Автообновление v1.2)
 -- =========================================================
 
 local ScriptName = "Anointing Menu"
-local ScriptVersion = "1.0"
+local ScriptVersion = "1.2"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -15,18 +15,16 @@ local function CheckForUpdate()
     end)
     
     if success then
-        -- Ищем версию в загруженном коде. (Ищем строку ScriptVersion = "...")
         local newVersion = string.match(result, 'ScriptVersion%s*=%s*"([^"]+)"')
         if newVersion and newVersion ~= ScriptVersion then
             print("Найдено обновление! Версия " .. newVersion .. ". Загружаем...")
-            loadstring(result)() -- Запускаем новую версию
+            loadstring(result)()
             return true
         end
     end
     return false
 end
 
--- Проверяем обновление перед запуском
 if CheckForUpdate() then return end
 
 -- =========================================================
@@ -44,7 +42,6 @@ MainFrame.Position = UDim2.new(0.5, -130, 0.5, -165)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true
 
 local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
@@ -55,7 +52,23 @@ Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 
--- Функция создания переключателей
+-- СВОРАЧИВАНИЕ МЕНЮ ПО КЛИКУ НА ЗАГОЛОВОК
+local isCollapsed = false
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isCollapsed = not isCollapsed
+        for _, child in pairs(MainFrame:GetChildren()) do
+            if child ~= Title then
+                child.Visible = not isCollapsed
+            end
+        end
+        MainFrame.Size = isCollapsed and UDim2.new(0, 260, 0, 40) or UDim2.new(0, 260, 0, 330)
+    end
+end)
+
+-- Перетаскивание
+MainFrame.Draggable = true
+
 local function CreateToggle(yPos, label, callback)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Parent = MainFrame
@@ -96,54 +109,48 @@ local mouse = player:GetMouse()
 -- ФУНКЦИИ МЕНЮ
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ (Speed)
+-- 1. СУПЕР СКОРОСТЬ (Снижена до 35)
 CreateToggle(50, "Super Speed", function(state)
     if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = state and 100 or 16
+        player.Character.Humanoid.WalkSpeed = state and 35 or 16
     end
 end)
 
--- 2. СУПЕР ПРЫЖОК (Значение 15)
-CreateToggle(90, "Super Jump (x15)", function(state)
+-- 2. СУПЕР ПРЫЖОК (Умножение на 15. Название чистое)
+CreateToggle(90, "Super Jump", function(state)
     if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = state and 15 or 50
+        player.Character.Humanoid.JumpPower = state and (16 * 15) or 50
     end
 end)
 
--- 3. ИНФИНИТИ ДЖАМП (Отдельная кнопка)
+-- 3. ИНФИНИТИ ДЖАМП (Исправленный)
 CreateToggle(130, "Infinite Jump", function(state)
     if state then
         task.spawn(function()
             while state do
                 local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-                if hum then
+                if hum and hum.PlatformStand == false then
                     hum.Jump = true 
                 end
-                task.wait(0.1)
+                task.wait()
             end
         end)
     end
 end)
 
--- 4. АВТОКЛИКЕР (Для телефонов / Мобильный)
-CreateToggle(170, "Auto Clicker (Mobile)", function(state)
-    task.spawn(function()
-        while state do
-            if player.Character then
-                -- Безопасная эмуляция тапа для сенсорных экранов
-                local args = { 
-                    [1] = Vector2.new(mouse.X, mouse.Y), 
-                    [2] = true 
-                }
-                game:GetService("Players").LocalPlayer:GetMouse()._MouseButton1Down:Fire(unpack(args))
-            end
-            task.wait(0.05)
+-- 4. НОУКЛИП (Noclip)
+CreateToggle(170, "Noclip", function(state)
+    local char = player.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CanCollide = not state
         end
-    end)
+    end
 end)
 
--- 5. ESP (Wallhack)
-CreateToggle(210, "ESP (Wallhack)", function(state)
+-- 5. ESP (Просто ESP, без Wallhack)
+CreateToggle(210, "ESP", function(state)
     task.spawn(function()
         while state do
             for _, p in pairs(game.Players:GetPlayers()) do
@@ -160,7 +167,6 @@ CreateToggle(210, "ESP (Wallhack)", function(state)
             end
             task.wait(0.5)
         end
-        -- Очистка при выключении
         for _, p in pairs(game.Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("ESP_Highlight") then
                 p.Character.ESP_Highlight:Destroy()
@@ -169,12 +175,29 @@ CreateToggle(210, "ESP (Wallhack)", function(state)
     end)
 end)
 
--- =========================================================
--- УПРАВЛЕНИЕ МЕНЮ (Закрытие/Открытие)
--- =========================================================
+-- 6. АВТО-УДАР (Triggerbot. Бьет, когда крестик красный / наведен на врага)
+CreateToggle(250, "Auto Attack (Trigger)", function(state)
+    if state then
+        task.spawn(function()
+            while state do
+                local target = mouse.Target
+                if target then
+                    local parent = target.Parent
+                    if parent:IsA("Model") and parent:FindFirstChild("Humanoid") and parent ~= player.Character then
+                        -- Эмулируем нажатие мыши для автоатаки
+                        mouse1click()
+                    end
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+end)
+
+-- Закрытие меню по ПКМ (правая кнопка мыши)
 local UIS = game:GetService("UserInputService")
 UIS.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightControl then
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         MainFrame.Visible = not MainFrame.Visible
     end
 end)
