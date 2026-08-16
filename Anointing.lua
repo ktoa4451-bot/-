@@ -1,13 +1,46 @@
--- [[ ОСНОВНОЕ МЕНЮ ]]
+-- =========================================================
+-- ANOINTING MENU (Автообновление v1.0)
+-- =========================================================
+
+local ScriptName = "Anointing Menu"
+local ScriptVersion = "1.0"
+local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
+
+-- =========================================================
+-- СИСТЕМА АВТООБНОВЛЕНИЯ
+-- =========================================================
+local function CheckForUpdate()
+    local success, result = pcall(function()
+        return game:HttpGet(RawURL)
+    end)
+    
+    if success then
+        -- Ищем версию в загруженном коде. (Ищем строку ScriptVersion = "...")
+        local newVersion = string.match(result, 'ScriptVersion%s*=%s*"([^"]+)"')
+        if newVersion and newVersion ~= ScriptVersion then
+            print("Найдено обновление! Версия " .. newVersion .. ". Загружаем...")
+            loadstring(result)() -- Запускаем новую версию
+            return true
+        end
+    end
+    return false
+end
+
+-- Проверяем обновление перед запуском
+if CheckForUpdate() then return end
+
+-- =========================================================
+-- ОСНОВНОЕ МЕНЮ
+-- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "DeltaMenu"
+ScreenGui.Name = "AnointingMenu"
 ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 380)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -190)
+MainFrame.Size = UDim2.new(0, 260, 0, 330)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -165)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -17,12 +50,12 @@ local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Title.Text = "Delta Cheat Menu"
+Title.Text = "Anointing Menu"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 
--- [[ ФУНКЦИЯ СОЗДАНИЯ ТУМБЛЕРА ]]
+-- Функция создания переключателей
 local function CreateToggle(yPos, label, callback)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Parent = MainFrame
@@ -56,123 +89,70 @@ local function CreateToggle(yPos, label, callback)
     end)
 end
 
--- [[ ПЕРЕМЕННЫЕ СОСТОЯНИЯ ]]
-local config = {
-    speed = false,
-    jump = false,
-    infJump = false,
-    hitbox = false,
-    autoShoot = false,
-    clicker = false,
-    esp = false
-}
-
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
--- [[ 1. УВЕЛИЧЕНИЕ ХИТБОКСОВ ]]
-CreateToggle(50, "Hitbox Expander", function(state)
-    config.hitbox = state
-    task.spawn(function()
-        while config.hitbox do
-            local char = player.Character
-            if char then
-                -- Растягиваем главную часть тела (торс) и голову
-                local root = char:FindFirstChild("HumanoidRootPart")
-                local head = char:FindFirstChild("Head")
-                if root then root.Size = Vector3.new(8, 8, 8) end -- Делаем огромным
-                if head then head.Size = Vector3.new(5, 5, 5) end 
-            end
-            task.wait(0.5)
-        end
-        -- Сброс размера при выключении
-        local char = player.Character
-        if char then
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local head = char:FindFirstChild("Head")
-            if root then root.Size = Vector3.new(2, 2, 1) end
-            if head then head.Size = Vector3.new(1, 1, 1) end
-        end
-    end)
-end)
+-- =========================================================
+-- ФУНКЦИИ МЕНЮ
+-- =========================================================
 
--- [[ 2. СУПЕР СКОРОСТЬ ]]
-CreateToggle(100, "Super Speed", function(state)
-    config.speed = state
+-- 1. СУПЕР СКОРОСТЬ (Speed)
+CreateToggle(50, "Super Speed", function(state)
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = state and 100 or 16
     end
 end)
 
--- [[ 3. СУПЕР ПРЫЖОК И ИНФИНИТИ ДЖАМП ]]
-CreateToggle(150, "Super Jump / Infinite", function(state)
-    config.jump = state
+-- 2. СУПЕР ПРЫЖОК (Значение 15)
+CreateToggle(90, "Super Jump (x15)", function(state)
     if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = state and 150 or 50
+        player.Character.Humanoid.JumpPower = state and 15 or 50
     end
-    
+end)
+
+-- 3. ИНФИНИТИ ДЖАМП (Отдельная кнопка)
+CreateToggle(130, "Infinite Jump", function(state)
     if state then
-        -- Включаем бесконечные прыжки (Inf Jump)
-        config.infJump = true
         task.spawn(function()
-            while config.infJump do
+            while state do
                 local hum = player.Character and player.Character:FindFirstChild("Humanoid")
                 if hum then
-                    hum.Jump = true -- Принудительно заставляем прыгать
+                    hum.Jump = true 
                 end
                 task.wait(0.1)
             end
         end)
-    else
-        config.infJump = false
     end
 end)
 
--- [[ 4. АВТОКЛИКЕР ]]
-CreateToggle(200, "Auto Clicker", function(state)
-    config.clicker = state
+-- 4. АВТОКЛИКЕР (Для телефонов / Мобильный)
+CreateToggle(170, "Auto Clicker (Mobile)", function(state)
     task.spawn(function()
-        while config.clicker do
+        while state do
             if player.Character then
-                -- Эмуляция клика мышкой
-                mouse1click() -- Встроенная функция для эмуляции
+                -- Безопасная эмуляция тапа для сенсорных экранов
+                local args = { 
+                    [1] = Vector2.new(mouse.X, mouse.Y), 
+                    [2] = true 
+                }
+                game:GetService("Players").LocalPlayer:GetMouse()._MouseButton1Down:Fire(unpack(args))
             end
-            task.wait(0.05) -- Скорость кликов
+            task.wait(0.05)
         end
     end)
 end)
 
--- [[ 5. СТРЕЛЬБА ПО ПРИЦЕЛУ (АВТО-АТАКА) ]]
-CreateToggle(250, "Trigger Bot (Hitbox)", function(state)
-    config.autoShoot = state
-end)
-
--- Логика Триггер-Бота: Если прицел на враге -> бьем
-mouse.Move:Connect(function()
-    if config.autoShoot and player.Character then
-        local target = mouse.Target
-        if target then
-            -- Проверяем, что цель - это часть тела другого игрока
-            local parentModel = target.Parent
-            if parentModel:IsA("Model") and parentModel:FindFirstChild("Humanoid") and parentModel ~= player.Character then
-                mouse1click() -- Наносим удар
-            end
-        end
-    end
-end)
-
--- [[ 6. ОБЫЧНЫЙ ESP ]]
-CreateToggle(300, "ESP (Wallhack)", function(state)
-    config.esp = state
+-- 5. ESP (Wallhack)
+CreateToggle(210, "ESP (Wallhack)", function(state)
     task.spawn(function()
-        while config.esp do
+        while state do
             for _, p in pairs(game.Players:GetPlayers()) do
                 if p ~= player and p.Character then
                     if not p.Character:FindFirstChild("ESP_Highlight") then
                         local hl = Instance.new("Highlight")
                         hl.Name = "ESP_Highlight"
                         hl.Parent = p.Character
-                        hl.FillColor = Color3.fromRGB(255, 0, 0) -- Красный цвет врага
+                        hl.FillColor = Color3.fromRGB(255, 0, 0)
                         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
                         hl.FillTransparency = 0.5
                     end
@@ -180,7 +160,7 @@ CreateToggle(300, "ESP (Wallhack)", function(state)
             end
             task.wait(0.5)
         end
-        -- Удаляем при выключении
+        -- Очистка при выключении
         for _, p in pairs(game.Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("ESP_Highlight") then
                 p.Character.ESP_Highlight:Destroy()
@@ -189,7 +169,9 @@ CreateToggle(300, "ESP (Wallhack)", function(state)
     end)
 end)
 
--- [[ Опционально: Скрыть меню по клавише RightControl ]]
+-- =========================================================
+-- УПРАВЛЕНИЕ МЕНЮ (Закрытие/Открытие)
+-- =========================================================
 local UIS = game:GetService("UserInputService")
 UIS.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightControl then
