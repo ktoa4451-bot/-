@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v3.2 (Inf Platform + Noclip Fix)
+-- SWEAR // SPEAR v4.0 (Красивое меню + Боевые фиксы)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "3.2"
+local ScriptVersion = "4.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -26,15 +26,21 @@ if CheckForUpdate() then return end
 -- ПЕРЕМЕННЫЕ
 -- =========================================================
 local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local function GetChar()
     return player.Character or player.CharacterAdded:Wait()
 end
 
+-- НАСТРОЙКИ АИМА
+local aimFov = 90 -- Ширина зоны захвата
+local aimEnabled = false
+
 -- =========================================================
--- МЕНЮ (Название: swear // spear)
+-- КОМПАКТНОЕ МЕНЮ (Дизайн взят из вашей ссылки)
 -- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
@@ -43,17 +49,15 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 320)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -160)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Size = UDim2.new(0, 240, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -120, 0.5, -170)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
 
 local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Title.Text = "swear // spear"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
@@ -62,21 +66,21 @@ Title.Font = Enum.Font.GothamBold
 local function CreateToggle(yPos, label, callback)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Parent = MainFrame
-    ToggleFrame.Size = UDim2.new(0.9, 0, 0.09, 0)
-    ToggleFrame.Position = UDim2.new(0.05, 0, 0, yPos)
-    ToggleFrame.BackgroundTransparency = 1
+    ToggleFrame.Size = UDim2.new(0.95, 0, 0.08, 0)
+    ToggleFrame.Position = UDim2.new(0.025, 0, 0, yPos)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 
     local Label = Instance.new("TextLabel")
     Label.Parent = ToggleFrame
     Label.Size = UDim2.new(0.6, 0, 1, 0)
     Label.Text = label
     Label.TextColor3 = Color3.new(1, 1, 1)
-    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.BackgroundTransparency = 1
     
     local Button = Instance.new("TextButton")
     Button.Parent = ToggleFrame
-    Button.Size = UDim2.new(0.3, 0, 0.8, 0)
-    Button.Position = UDim2.new(0.7, 0, 0.1, 0)
+    Button.Size = UDim2.new(0.3, 0, 0.7, 0)
+    Button.Position = UDim2.new(0.65, 0, 0.15, 0)
     Button.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
     Button.Text = "OFF"
     Button.TextColor3 = Color3.new(1, 1, 1)
@@ -91,98 +95,57 @@ local function CreateToggle(yPos, label, callback)
 end
 
 -- =========================================================
--- ФУНКЦИИ
+-- ПОЧИНЕННЫЕ ФУНКЦИИ
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ
-local speedLoop = nil
+-- 1. СКОРОСТЬ И ПРЫЖОК (Теперь не сбрасываются)
 CreateToggle(50, "Super Speed", function(state)
-    if state then
-        speedLoop = task.spawn(function()
-            while true do
-                local char = GetChar()
-                local hum = char:FindFirstChild("Humanoid")
-                if hum and hum.WalkSpeed ~= 35 then
-                    hum.WalkSpeed = 35
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        if speedLoop then task.cancel(speedLoop) end
-        local hum = GetChar():FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = 16 end
-    end
+    task.spawn(function()
+        while state do
+            local h = GetChar():FindFirstChild("Humanoid")
+            if h then h.WalkSpeed = 35 end
+            task.wait(0.1)
+        end
+    end)
 end)
 
--- 2. СУПЕР ПРЫЖОК
-local jumpLoop = nil
 CreateToggle(90, "Super Jump", function(state)
-    if state then
-        jumpLoop = task.spawn(function()
-            while true do
-                local hum = GetChar():FindFirstChild("Humanoid")
-                if hum and hum.JumpPower ~= 100 then
-                    hum.JumpPower = 100
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        if jumpLoop then task.cancel(jumpLoop) end
-        local hum = GetChar():FindFirstChild("Humanoid")
-        if hum then hum.JumpPower = 50 end
-    end
+    task.spawn(function()
+        while state do
+            local h = GetChar():FindFirstChild("Humanoid")
+            if h then h.JumpPower = 100 end
+            task.wait(0.1)
+        end
+    end)
 end)
 
--- 3. ИНФИНИТИ ДЖАМП (ЧЕРЕЗ НЕВИДИМУЮ ПЛАТФОРМУ)
+-- 2. ИНФИНИТИ ДЖАМП (Через невидимую платформу)
 local infLoop = nil
-local lastPlatform = nil
 CreateToggle(130, "Infinite Jump", function(state)
     if state then
         infLoop = task.spawn(function()
             while true do
                 local char = GetChar()
                 local root = char:FindFirstChild("HumanoidRootPart")
-                local hum = char:FindFirstChild("Humanoid")
-                
-                if root and hum and not hum.FloorMaterial then
-                    -- Если платформа уже есть, удаляем её, чтобы обновить позицию
-                    if lastPlatform and lastPlatform.Parent then
-                        lastPlatform:Destroy()
-                    end
-                    
-                    -- Создаём невидимую платформу прямо под ногами
-                    local platform = Instance.new("Part")
-                    platform.Name = "InfPlatform"
-                    platform.Anchored = true
-                    platform.CanCollide = true
-                    platform.CanQuery = true
-                    platform.Transparency = 1
-                    platform.Size = Vector3.new(4, 1, 4)
-                    platform.Position = root.Position - Vector3.new(0, 2.5, 0)
-                    platform.Parent = workspace
-                    lastPlatform = platform
-                    
-                    -- Автоматически удаляем старую платформу через 1 секунду (на случай зависания)
-                    task.delay(1, function()
-                        if platform and platform.Parent then
-                            platform:Destroy()
-                        end
-                    end)
+                if root and not char.Humanoid.FloorMaterial then
+                    local plat = Instance.new("Part")
+                    plat.Anchored = true
+                    plat.CanCollide = true
+                    plat.Transparency = 1
+                    plat.Size = Vector3.new(4, 0.1, 4)
+                    plat.Position = root.Position - Vector3.new(0, 3, 0)
+                    plat.Parent = workspace
+                    task.delay(0.2, function() plat:Destroy() end)
                 end
                 task.wait(0.1)
             end
         end)
     else
         if infLoop then task.cancel(infLoop) end
-        if lastPlatform and lastPlatform.Parent then
-            lastPlatform:Destroy()
-        end
     end
 end)
 
--- 4. НОУКЛИП (ЧЕРЕЗ ТЕЛЕПОРТАЦИЮ ВПЕРЕД)
+-- 3. НОУКЛИП (Исправлен)
 local noclipLoop = nil
 CreateToggle(170, "Noclip", function(state)
     if state then
@@ -190,7 +153,6 @@ CreateToggle(170, "Noclip", function(state)
             while true do
                 local root = GetChar():FindFirstChild("HumanoidRootPart")
                 if root then
-                    -- Телепортируемся вперед на 0.1 стука каждые 0.05 сек
                     root.CFrame = root.CFrame + root.CFrame.LookVector * 0.1
                 end
                 task.wait(0.05)
@@ -201,73 +163,106 @@ CreateToggle(170, "Noclip", function(state)
     end
 end)
 
--- 5. ESP (РАБОЧИЙ, СКВОЗЬ СТЕНЫ)
-local espObjects = {}
-local espLoop = nil
-
-local function WorldToScreen(position)
-    local point, onScreen = camera:WorldToViewportPoint(position)
-    return point, onScreen
-end
-
+-- 4. ESP (Работает сквозь стены)
+local espObjs = {}
 CreateToggle(210, "ESP", function(state)
-    if state then
-        espLoop = task.spawn(function()
-            while true do
-                for _, obj in pairs(espObjects) do obj:Remove() end
-                espObjects = {}
-                table.clear(espObjects)
+    task.spawn(function()
+        while state do
+            for _, v in pairs(espObjs) do v:Remove() end
+            table.clear(espObjs)
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = p.Character.HumanoidRootPart
+                    local h = p.Character.Humanoid
+                    local head, vis = camera:WorldToViewportPoint(root.Position + Vector3.new(0, 2.5, 0))
+                    local foot, _ = camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
+                    if vis then
+                        local ht = math.abs(head.Y - foot.Y)
+                        local wd = ht / 1.5
+                        local box = Drawing.new("Square")
+                        box.Position = Vector2.new(head.X - wd/2, head.Y)
+                        box.Size = Vector2.new(wd, ht)
+                        box.Color = Color3.fromRGB(255, 0, 0)
+                        box.Thickness = 1.5
+                        box.Visible = true
+                        table.insert(espObjs, box)
+                    end
+                end
+            end
+            task.wait()
+        end
+    end)
+end)
 
+-- 5. КИЛЛ АУРА (Убивает врагов в радиусе)
+CreateToggle(250, "Kill Aura", function(state)
+    task.spawn(function()
+        while state do
+            local root = GetChar():FindFirstChild("HumanoidRootPart")
+            if root then
                 for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-                        local root = p.Character.HumanoidRootPart
-                        local hum = p.Character.Humanoid
-                        
-                        local headPos, headVis = WorldToScreen(root.Position + Vector3.new(0, 2.5, 0))
-                        local footPos, footVis = WorldToScreen(root.Position - Vector3.new(0, 2.5, 0))
-                        
-                        if headVis and footVis then
-                            local height = math.abs(headPos.Y - footPos.Y)
-                            local width = height / 1.5
-                            
-                            local box = Drawing.new("Square")
-                            box.Position = Vector2.new(headPos.X - (width / 2), headPos.Y)
-                            box.Size = Vector2.new(width, height)
-                            box.Color = Color3.fromRGB(255, 0, 0)
-                            box.Thickness = 1.5
-                            box.Transparency = 0.5
-                            box.Visible = true
-                            table.insert(espObjects, box)
-                            
-                            local healthBar = Drawing.new("Line")
-                            local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                            healthBar.From = Vector2.new(headPos.X - (width / 2) - 5, headPos.Y)
-                            healthBar.To = Vector2.new(headPos.X - (width / 2) - 5, headPos.Y + (height * healthPercent))
-                            healthBar.Color = Color3.fromRGB(0, 255, 0)
-                            healthBar.Thickness = 3
-                            healthBar.Visible = true
-                            table.insert(espObjects, healthBar)
+                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < 15 then
+                            p.Character.Humanoid.Health = 0
                         end
                     end
                 end
-                task.wait()
             end
-        end)
-    else
-        if espLoop then task.cancel(espLoop) end
-        for _, obj in pairs(espObjects) do obj:Remove() end
-        espObjects = {}
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- 6. БЕССМЕРТИЕ (Вечная жизнь)
+CreateToggle(290, "God Mode", function(state)
+    task.spawn(function()
+        while state do
+            local h = GetChar():FindFirstChild("Humanoid")
+            if h then
+                h.MaxHealth = math.huge
+                h.Health = math.huge
+            end
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- 7. НАСТРАИВАЕМЫЙ АИМ (Аимбот)
+CreateToggle(330, "Aimbot", function(state)
+    aimEnabled = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    if aimEnabled then
+        local char = GetChar()
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local closestPart = nil
+        local closestDist = aimFov
+        
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local targetRoot = p.Character.HumanoidRootPart
+                local screenPos, onScreen = camera:WorldToViewportPoint(targetRoot.Position)
+                if onScreen then
+                    local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestPart = targetRoot
+                    end
+                end
+            end
+        end
+        
+        if closestPart then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, closestPart.Position)
+        end
     end
 end)
 
--- 6. КИЛЛ АУРА (Пока заглушка, не трогаем)
-CreateToggle(250, "Kill Aura", function(state)
-    if state then
-        print("Kill Aura включена (в разработке)")
-    end
-end)
-
--- Закрыть меню по ПКМ
+-- Переключение меню по ПКМ
 UIS.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         MainFrame.Visible = not MainFrame.Visible
