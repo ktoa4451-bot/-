@@ -1,9 +1,9 @@
 -- =========================================================
--- ANOINTING MENU v3.1 (Inf Jump + Noclip Исправлены)
+-- SWEAR // SPEAR v3.2 (Inf Platform + Noclip Fix)
 -- =========================================================
 
-local ScriptName = "Anointing Menu"
-local ScriptVersion = "3.1"
+local ScriptName = "swear // spear"
+local ScriptVersion = "3.2"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -34,17 +34,17 @@ local function GetChar()
 end
 
 -- =========================================================
--- МЕНЮ
+-- МЕНЮ (Название: swear // spear)
 -- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "AnointingMenu"
+ScreenGui.Name = "SwearSpearMenu"
 ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 250, 0, 320)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -160)
+MainFrame.Size = UDim2.new(0, 260, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -160)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -54,9 +54,10 @@ local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Title.Text = "Anointing Menu"
+Title.Text = "swear // spear"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
 
 local function CreateToggle(yPos, label, callback)
     local ToggleFrame = Instance.new("Frame")
@@ -71,7 +72,6 @@ local function CreateToggle(yPos, label, callback)
     Label.Text = label
     Label.TextColor3 = Color3.new(1, 1, 1)
     Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.BackgroundTransparency = 1
     
     local Button = Instance.new("TextButton")
     Button.Parent = ToggleFrame
@@ -135,49 +135,73 @@ CreateToggle(90, "Super Jump", function(state)
     end
 end)
 
--- 3. ИНФИНИТИ ДЖАМП (ПОЧИНЕН ЧЕРЕЗ ФИЗИКУ)
+-- 3. ИНФИНИТИ ДЖАМП (ЧЕРЕЗ НЕВИДИМУЮ ПЛАТФОРМУ)
 local infLoop = nil
+local lastPlatform = nil
 CreateToggle(130, "Infinite Jump", function(state)
     if state then
         infLoop = task.spawn(function()
             while true do
                 local char = GetChar()
-                local hum = char:FindFirstChild("Humanoid")
                 local root = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChild("Humanoid")
                 
-                -- Если мы в воздухе (не касаемся пола), принудительно толкаем вверх
-                if hum and root and not hum.FloorMaterial then
-                    root.Velocity = Vector3.new(root.Velocity.X, 25, root.Velocity.Z)
+                if root and hum and not hum.FloorMaterial then
+                    -- Если платформа уже есть, удаляем её, чтобы обновить позицию
+                    if lastPlatform and lastPlatform.Parent then
+                        lastPlatform:Destroy()
+                    end
+                    
+                    -- Создаём невидимую платформу прямо под ногами
+                    local platform = Instance.new("Part")
+                    platform.Name = "InfPlatform"
+                    platform.Anchored = true
+                    platform.CanCollide = true
+                    platform.CanQuery = true
+                    platform.Transparency = 1
+                    platform.Size = Vector3.new(4, 1, 4)
+                    platform.Position = root.Position - Vector3.new(0, 2.5, 0)
+                    platform.Parent = workspace
+                    lastPlatform = platform
+                    
+                    -- Автоматически удаляем старую платформу через 1 секунду (на случай зависания)
+                    task.delay(1, function()
+                        if platform and platform.Parent then
+                            platform:Destroy()
+                        end
+                    end)
                 end
-                task.wait(0.05)
+                task.wait(0.1)
             end
         end)
     else
         if infLoop then task.cancel(infLoop) end
+        if lastPlatform and lastPlatform.Parent then
+            lastPlatform:Destroy()
+        end
     end
 end)
 
--- 4. НОУКЛИП (ПОЧИНЕН, агрессивное обновление)
+-- 4. НОУКЛИП (ЧЕРЕЗ ТЕЛЕПОРТАЦИЮ ВПЕРЕД)
 local noclipLoop = nil
 CreateToggle(170, "Noclip", function(state)
     if state then
         noclipLoop = task.spawn(function()
             while true do
                 local root = GetChar():FindFirstChild("HumanoidRootPart")
-                if root and root.CanCollide == true then
-                    root.CanCollide = false
+                if root then
+                    -- Телепортируемся вперед на 0.1 стука каждые 0.05 сек
+                    root.CFrame = root.CFrame + root.CFrame.LookVector * 0.1
                 end
                 task.wait(0.05)
             end
         end)
     else
         if noclipLoop then task.cancel(noclipLoop) end
-        local root = GetChar():FindFirstChild("HumanoidRootPart")
-        if root then root.CanCollide = true end
     end
 end)
 
--- 5. ESP (Рабочий, сквозь стены)
+-- 5. ESP (РАБОЧИЙ, СКВОЗЬ СТЕНЫ)
 local espObjects = {}
 local espLoop = nil
 
@@ -186,7 +210,7 @@ local function WorldToScreen(position)
     return point, onScreen
 end
 
-CreateToggle(210, "ESP (Wallhack)", function(state)
+CreateToggle(210, "ESP", function(state)
     if state then
         espLoop = task.spawn(function()
             while true do
@@ -236,8 +260,12 @@ CreateToggle(210, "ESP (Wallhack)", function(state)
     end
 end)
 
--- 6. Килл Аура (Пока не трогаем, оставил пустую кнопку в меню)
-CreateToggle(250, "Kill Aura (Soon)", function() end)
+-- 6. КИЛЛ АУРА (Пока заглушка, не трогаем)
+CreateToggle(250, "Kill Aura", function(state)
+    if state then
+        print("Kill Aura включена (в разработке)")
+    end
+end)
 
 -- Закрыть меню по ПКМ
 UIS.InputBegan:Connect(function(input)
