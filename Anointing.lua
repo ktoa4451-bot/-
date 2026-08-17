@@ -1,9 +1,9 @@
 -- =========================================================
--- ANOINTING MENU v3.0 (Реальный ESP + Фиксы)
+-- ANOINTING MENU v3.1 (Inf Jump + Noclip Исправлены)
 -- =========================================================
 
 local ScriptName = "Anointing Menu"
-local ScriptVersion = "3.0"
+local ScriptVersion = "3.1"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -43,8 +43,8 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 250, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 250, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -160)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -94,7 +94,7 @@ end
 -- ФУНКЦИИ
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ (Исправлена)
+-- 1. СУПЕР СКОРОСТЬ
 local speedLoop = nil
 CreateToggle(50, "Super Speed", function(state)
     if state then
@@ -115,7 +115,7 @@ CreateToggle(50, "Super Speed", function(state)
     end
 end)
 
--- 2. СУПЕР ПРЫЖОК (Исправлен)
+-- 2. СУПЕР ПРЫЖОК
 local jumpLoop = nil
 CreateToggle(90, "Super Jump", function(state)
     if state then
@@ -135,9 +135,49 @@ CreateToggle(90, "Super Jump", function(state)
     end
 end)
 
--- =========================================================
--- РАБОЧИЙ ESP (BOXES СКВОЗЬ СТЕНЫ)
--- =========================================================
+-- 3. ИНФИНИТИ ДЖАМП (ПОЧИНЕН ЧЕРЕЗ ФИЗИКУ)
+local infLoop = nil
+CreateToggle(130, "Infinite Jump", function(state)
+    if state then
+        infLoop = task.spawn(function()
+            while true do
+                local char = GetChar()
+                local hum = char:FindFirstChild("Humanoid")
+                local root = char:FindFirstChild("HumanoidRootPart")
+                
+                -- Если мы в воздухе (не касаемся пола), принудительно толкаем вверх
+                if hum and root and not hum.FloorMaterial then
+                    root.Velocity = Vector3.new(root.Velocity.X, 25, root.Velocity.Z)
+                end
+                task.wait(0.05)
+            end
+        end)
+    else
+        if infLoop then task.cancel(infLoop) end
+    end
+end)
+
+-- 4. НОУКЛИП (ПОЧИНЕН, агрессивное обновление)
+local noclipLoop = nil
+CreateToggle(170, "Noclip", function(state)
+    if state then
+        noclipLoop = task.spawn(function()
+            while true do
+                local root = GetChar():FindFirstChild("HumanoidRootPart")
+                if root and root.CanCollide == true then
+                    root.CanCollide = false
+                end
+                task.wait(0.05)
+            end
+        end)
+    else
+        if noclipLoop then task.cancel(noclipLoop) end
+        local root = GetChar():FindFirstChild("HumanoidRootPart")
+        if root then root.CanCollide = true end
+    end
+end)
+
+-- 5. ESP (Рабочий, сквозь стены)
 local espObjects = {}
 local espLoop = nil
 
@@ -146,14 +186,11 @@ local function WorldToScreen(position)
     return point, onScreen
 end
 
-CreateToggle(130, "ESP (Wallhack)", function(state)
+CreateToggle(210, "ESP (Wallhack)", function(state)
     if state then
         espLoop = task.spawn(function()
             while true do
-                -- Очищаем старые рисованные объекты
-                for _, obj in pairs(espObjects) do
-                    obj:Remove()
-                end
+                for _, obj in pairs(espObjects) do obj:Remove() end
                 espObjects = {}
                 table.clear(espObjects)
 
@@ -162,7 +199,6 @@ CreateToggle(130, "ESP (Wallhack)", function(state)
                         local root = p.Character.HumanoidRootPart
                         local hum = p.Character.Humanoid
                         
-                        -- Переводим 3D в 2D координаты экрана
                         local headPos, headVis = WorldToScreen(root.Position + Vector3.new(0, 2.5, 0))
                         local footPos, footVis = WorldToScreen(root.Position - Vector3.new(0, 2.5, 0))
                         
@@ -170,7 +206,6 @@ CreateToggle(130, "ESP (Wallhack)", function(state)
                             local height = math.abs(headPos.Y - footPos.Y)
                             local width = height / 1.5
                             
-                            -- Создаем рамку
                             local box = Drawing.new("Square")
                             box.Position = Vector2.new(headPos.X - (width / 2), headPos.Y)
                             box.Size = Vector2.new(width, height)
@@ -180,7 +215,6 @@ CreateToggle(130, "ESP (Wallhack)", function(state)
                             box.Visible = true
                             table.insert(espObjects, box)
                             
-                            -- Создаем линию здоровья
                             local healthBar = Drawing.new("Line")
                             local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                             healthBar.From = Vector2.new(headPos.X - (width / 2) - 5, headPos.Y)
@@ -197,17 +231,13 @@ CreateToggle(130, "ESP (Wallhack)", function(state)
         end)
     else
         if espLoop then task.cancel(espLoop) end
-        for _, obj in pairs(espObjects) do
-            obj:Remove()
-        end
+        for _, obj in pairs(espObjects) do obj:Remove() end
         espObjects = {}
     end
 end)
 
--- 3. ОСТАЛЬНЫЕ ФУНКЦИИ (Показываем в меню, но они требуют серверного доступа)
-CreateToggle(170, "Infinite Jump (Broken)", function() end)
-CreateToggle(210, "Noclip (Broken)", function() end)
-CreateToggle(250, "Kill Aura (Broken)", function() end)
+-- 6. Килл Аура (Пока не трогаем, оставил пустую кнопку в меню)
+CreateToggle(250, "Kill Aura (Soon)", function() end)
 
 -- Закрыть меню по ПКМ
 UIS.InputBegan:Connect(function(input)
