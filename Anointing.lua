@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v5.2 (Без Аима, Kill Aura без лагов)
+-- SWEAR // SPEAR v5.3 (God Mode Fix, Kill Aura Fix)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "5.2"
+local ScriptVersion = "5.3"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -110,7 +110,7 @@ end
 
 -- 1. ESP (Сбоку)
 local espObjs = {}
-CreateToggle(50, "ESP (HP Left)", function(state)
+CreateToggle(50, "ESP", function(state)
     espEnabled = state
     if state then
         task.spawn(function()
@@ -158,23 +158,26 @@ CreateToggle(50, "ESP (HP Left)", function(state)
     end
 end)
 
--- 2. БЕССМЕРТИЕ (Починенное)
+-- 2. БЕССМЕРТИЕ (Ловит момент получения урона)
 CreateToggle(90, "God Mode", function(state)
     godModeEnabled = state
     task.spawn(function()
         while godModeEnabled do
             local hum = GetChar():FindFirstChild("Humanoid")
             if hum then
-                hum.MaxHealth = 9999
-                hum.Health = 9999
+                -- Если игра пытается снять здоровье, возвращаем обратно
+                if hum.Health < 9999 then
+                    hum.Health = 9999
+                    hum.MaxHealth = 9999
+                end
             end
             task.wait(0.05)
         end
     end)
 end)
 
--- 3. КИЛЛ АУРА (Без спама кликов. Сбрасывает врага в воздух)
-CreateToggle(130, "Kill Aura (Fall)", function(state)
+-- 3. КИЛЛ АУРА (Телепортация врага под ноги + Аварийный сброс)
+CreateToggle(130, "Kill Aura", function(state)
     killAuraEnabled = state
     task.spawn(function()
         while killAuraEnabled do
@@ -186,16 +189,22 @@ CreateToggle(130, "Kill Aura (Fall)", function(state)
                         local dist = (root.Position - targetRoot.Position).Magnitude
                         
                         if dist < 12 then
-                            -- Подбрасываем врага вверх и отключаем ему коллизию
-                            targetRoot.Velocity = Vector3.new(0, 50, 0)
+                            -- Телепортируем врага под ваши ноги (вниз на 3 метра)
+                            targetRoot.CFrame = root.CFrame - Vector3.new(0, 3, 0)
+                            task.wait(0.05)
                             targetRoot.CanCollide = false
-                            task.wait(0.1)
-                            targetRoot.CanCollide = true
                             
-                            -- Альтернативный урон, если игра не убивает падением
-                            local hum = p.Character:FindFirstChild("Humanoid")
-                            if hum and hum.Health > 0 then
-                                hum.Health = 0
+                            -- Отключаем коллизию, чтобы он провалился и получил урон от падения
+                            task.delay(0.3, function()
+                                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                                    p.Character.HumanoidRootPart.CanCollide = true
+                                end
+                            end)
+                            
+                            -- Аварийный сброс здоровья, если игра простая
+                            local targetHum = p.Character:FindFirstChild("Humanoid")
+                            if targetHum and targetHum.Health > 0 then
+                                targetHum.Health = 0
                             end
                         end
                     end
