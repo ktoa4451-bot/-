@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v5.3 (God Mode Fix, Kill Aura Fix)
+-- SWEAR // SPEAR v6.0 (Без телепортов, без банов)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "5.3"
+local ScriptVersion = "6.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -126,7 +126,6 @@ CreateToggle(50, "ESP", function(state)
                         if vis then
                             local ht = math.abs(head.Y - foot.Y)
                             local wd = ht / 1.5
-                            -- Рамка
                             local box = Drawing.new("Square")
                             box.Position = Vector2.new(head.X - wd/2, head.Y)
                             box.Size = Vector2.new(wd, ht)
@@ -135,7 +134,6 @@ CreateToggle(50, "ESP", function(state)
                             box.Visible = true
                             table.insert(espObjs, box)
                             
-                            -- Полоска ХП СЛЕВА
                             if hum then
                                 local hpLine = Drawing.new("Line")
                                 local percent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
@@ -158,59 +156,56 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. БЕССМЕРТИЕ (Ловит момент получения урона)
+-- 2. БЕССМЕРТИЕ (Ультра-регенерация)
 CreateToggle(90, "God Mode", function(state)
     godModeEnabled = state
     task.spawn(function()
         while godModeEnabled do
             local hum = GetChar():FindFirstChild("Humanoid")
             if hum then
-                -- Если игра пытается снять здоровье, возвращаем обратно
-                if hum.Health < 9999 then
-                    hum.Health = 9999
-                    hum.MaxHealth = 9999
+                -- Если удар только что пришёл и здоровье упало, восстанавливаем его до получения урона
+                if hum.Health < hum.MaxHealth then
+                    hum.Health = hum.MaxHealth
                 end
             end
-            task.wait(0.05)
+            task.wait(0.01)
         end
     end)
 end)
 
--- 3. КИЛЛ АУРА (Телепортация врага под ноги + Аварийный сброс)
+-- 3. КИЛЛ АУРА (Эмуляция точного клика без дёрганий)
 CreateToggle(130, "Kill Aura", function(state)
     killAuraEnabled = state
     task.spawn(function()
         while killAuraEnabled do
-            local root = GetChar():FindFirstChild("HumanoidRootPart")
+            local char = GetChar()
+            local root = char:FindFirstChild("HumanoidRootPart")
             if root then
+                local nearest = nil
+                local nearestDist = 15
+                
                 for _, p in pairs(game.Players:GetPlayers()) do
                     if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local targetRoot = p.Character.HumanoidRootPart
-                        local dist = (root.Position - targetRoot.Position).Magnitude
-                        
-                        if dist < 12 then
-                            -- Телепортируем врага под ваши ноги (вниз на 3 метра)
-                            targetRoot.CFrame = root.CFrame - Vector3.new(0, 3, 0)
-                            task.wait(0.05)
-                            targetRoot.CanCollide = false
-                            
-                            -- Отключаем коллизию, чтобы он провалился и получил урон от падения
-                            task.delay(0.3, function()
-                                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                                    p.Character.HumanoidRootPart.CanCollide = true
-                                end
-                            end)
-                            
-                            -- Аварийный сброс здоровья, если игра простая
-                            local targetHum = p.Character:FindFirstChild("Humanoid")
-                            if targetHum and targetHum.Health > 0 then
-                                targetHum.Health = 0
-                            end
+                        local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist and dist < 20 then
+                            nearestDist = dist
+                            nearest = p
                         end
                     end
                 end
+                
+                if nearest then
+                    local targetRoot = nearest.Character.HumanoidRootPart
+                    -- Плавно наводим камеру (без рывков)
+                    local lookVector = (targetRoot.Position - camera.CFrame.Position).Unit
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + lookVector)
+                    task.wait(0.001) -- Микро-задержка для имитации реальной реакции
+                    -- Наносим удар
+                    mouse1click()
+                    task.wait(0.05)
+                end
             end
-            task.wait(0.15)
+            task.wait(0.1)
         end
     end)
 end)
