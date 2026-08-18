@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v9.0 (Пассивный удар по лучу)
+-- SWEAR // SPEAR v10.0 (Мобильный фикс. Без потери кнопок)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "9.0"
+local ScriptVersion = "10.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -37,6 +37,7 @@ end
 
 local espEnabled = false
 local killAuraEnabled = false
+local killAuraCooldown = 0
 
 -- =========================================================
 -- МЕНЮ
@@ -155,48 +156,49 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. КИЛЛ АУРА (Пассивная / Без аима / Через Луч)
-CreateToggle(90, "Kill Aura (Passive)", function(state)
+-- 2. КИЛЛ АУРА (Работает через Stepped, без задержек. Не трогает кнопки)
+CreateToggle(90, "Kill Aura (Pro)", function(state)
     killAuraEnabled = state
-    
-    if state then
-        task.spawn(function()
-            while killAuraEnabled do
-                local char = GetChar()
-                local root = char:FindFirstChild("HumanoidRootPart")
-                
-                if root then
-                    -- 1. Пускаем луч строго из центра экрана
-                    local rayOrigin = camera.CFrame.Position
-                    local rayDirection = (mouse.Hit.Position - rayOrigin).Unit * 100
-                    
-                    -- 2. Проверяем попадание (Raycast)
-                    local raycastParams = RaycastParams.new()
-                    raycastParams.FilterDescendantsInstances = {char}
-                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-                    
-                    local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-                    
-                    if result and result.Instance then
-                        local hitPart = result.Instance
-                        local hitParent = hitPart.Parent
-                        
-                        -- 3. Проверяем, что попали именно в живого врага
-                        if hitParent:IsA("Model") and hitParent:FindFirstChild("Humanoid") and hitParent ~= char then
-                            local targetHum = hitParent:FindFirstChild("Humanoid")
-                            
-                            if targetHum and targetHum.Health > 0 then
-                                -- 4. Имитация Крит-зарядки (задержка + удар)
-                                task.wait(0.4) -- Имитация заполнения полоски
-                                mouse1click() -- Наносим критический удар
-                                task.wait(0.1)
-                            end
+end)
+
+local function AttackEnemy()
+    -- Эмуляция нажатия ЛКМ без вызова мыши (чтобы не лагать телефон)
+    local VirtualInput = game:GetService("VirtualInputManager")
+    VirtualInput:SendMouseButtonEvent(0, 0, 0, Enum.UserInputType.MouseButton1, true)
+    task.wait(0.01)
+    VirtualInput:SendMouseButtonEvent(0, 0, 0, Enum.UserInputType.MouseButton1, false)
+end
+
+RunService.Stepped:Connect(function()
+    if killAuraEnabled then
+        local char = GetChar()
+        local root = char:FindFirstChild("HumanoidRootPart")
+        
+        if root then
+            -- Пускаем луч из центра экрана (Raycast)
+            local rayOrigin = camera.CFrame.Position
+            local rayDirection = (mouse.Hit.Position - rayOrigin).Unit * 100
+            
+            local rayParams = RaycastParams.new()
+            rayParams.FilterDescendantsInstances = {char}
+            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+            
+            local result = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+            
+            if result and result.Instance then
+                local hitParent = result.Instance.Parent
+                if hitParent:IsA("Model") and hitParent:FindFirstChild("Humanoid") and hitParent ~= char then
+                    local targetHum = hitParent:FindFirstChild("Humanoid")
+                    if targetHum and targetHum.Health > 0 then
+                        -- Наносим урон только один раз в 0.8 секунды (чтобы не спамить)
+                        if tick() - killAuraCooldown > 0.8 then
+                            AttackEnemy()
+                            killAuraCooldown = tick()
                         end
                     end
                 end
-                task.wait(0.05) -- Быстрая проверка, чтобы не пропустить движущегося врага
             end
-        end)
+        end
     end
 end)
 
