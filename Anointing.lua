@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v6.0 (Без телепортов, без банов)
+-- SWEAR // SPEAR v7.0 (Визуальная Килл Аура + Криты)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "6.0"
+local ScriptVersion = "7.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -26,7 +26,6 @@ if CheckForUpdate() then return end
 -- ПЕРЕМЕННЫЕ
 -- =========================================================
 local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -35,9 +34,9 @@ local function GetChar()
     return player.Character or player.CharacterAdded:Wait()
 end
 
-local godModeEnabled = false
-local killAuraEnabled = false
 local espEnabled = false
+local killAuraEnabled = false
+local killAuraSphere = nil
 
 -- =========================================================
 -- МЕНЮ
@@ -49,8 +48,8 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -175)
+MainFrame.Size = UDim2.new(0, 260, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -150)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -70,7 +69,7 @@ ScrollingFrame.Size = UDim2.new(1, 0, 1, -40)
 ScrollingFrame.Position = UDim2.new(0, 0, 0, 40)
 ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 400)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 350)
 ScrollingFrame.ScrollBarThickness = 4
 
 local function CreateToggle(yPos, label, callback)
@@ -156,58 +155,60 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. БЕССМЕРТИЕ (Ультра-регенерация)
-CreateToggle(90, "God Mode", function(state)
-    godModeEnabled = state
-    task.spawn(function()
-        while godModeEnabled do
-            local hum = GetChar():FindFirstChild("Humanoid")
-            if hum then
-                -- Если удар только что пришёл и здоровье упало, восстанавливаем его до получения урона
-                if hum.Health < hum.MaxHealth then
-                    hum.Health = hum.MaxHealth
-                end
-            end
-            task.wait(0.01)
-        end
-    end)
-end)
-
--- 3. КИЛЛ АУРА (Эмуляция точного клика без дёрганий)
-CreateToggle(130, "Kill Aura", function(state)
+-- 2. КИЛЛ АУРА (Визуальный круг + Криты)
+CreateToggle(90, "Kill Aura", function(state)
     killAuraEnabled = state
-    task.spawn(function()
-        while killAuraEnabled do
-            local char = GetChar()
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local nearest = nil
-                local nearestDist = 15
+    
+    if state then
+        -- Создаём визуальный круг вокруг игрока
+        killAuraSphere = Instance.new("Part")
+        killAuraSphere.Name = "KillAuraSphere"
+        killAuraSphere.Anchored = true
+        killAuraSphere.CanCollide = false
+        killAuraSphere.Transparency = 0.7
+        killAuraSphere.Color = Color3.fromRGB(255, 0, 0)
+        killAuraSphere.Material = Enum.Material.Glass
+        killAuraSphere.Size = Vector3.new(25, 25, 25) -- Радиус 12.5 метров
+        killAuraSphere.Shape = Enum.PartType.Ball
+        killAuraSphere.Parent = workspace
+
+        -- Запускаем логику убийства
+        task.spawn(function()
+            while killAuraEnabled and killAuraSphere do
+                local char = GetChar()
+                local root = char:FindFirstChild("HumanoidRootPart")
                 
-                for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < nearestDist and dist < 20 then
-                            nearestDist = dist
-                            nearest = p
+                if root then
+                    -- Передвигаем круг за персонажем
+                    killAuraSphere.Position = root.Position
+                    
+                    -- Проверяем врагов внутри круга
+                    for _, p in pairs(game.Players:GetPlayers()) do
+                        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                            local targetRoot = p.Character.HumanoidRootPart
+                            local dist = (root.Position - targetRoot.Position).Magnitude
+                            
+                            -- Если враг внутри круга (радиус 12.5)
+                            if dist < 12.5 then
+                                -- Мгновенный Крит (3 удара за 0.01 сек)
+                                for i = 1, 3 do
+                                    mouse1click()
+                                end
+                                task.wait(0.01)
+                            end
                         end
                     end
                 end
-                
-                if nearest then
-                    local targetRoot = nearest.Character.HumanoidRootPart
-                    -- Плавно наводим камеру (без рывков)
-                    local lookVector = (targetRoot.Position - camera.CFrame.Position).Unit
-                    camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + lookVector)
-                    task.wait(0.001) -- Микро-задержка для имитации реальной реакции
-                    -- Наносим удар
-                    mouse1click()
-                    task.wait(0.05)
-                end
+                task.wait(0.1)
             end
-            task.wait(0.1)
+        end)
+    else
+        -- Уничтожаем круг при выключении
+        if killAuraSphere then
+            killAuraSphere:Destroy()
+            killAuraSphere = nil
         end
-    end)
+    end
 end)
 
 -- Закрыть по ПКМ
