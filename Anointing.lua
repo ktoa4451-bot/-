@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v4.5 (Anti-Cheat Bypass)
+-- SWEAR // SPEAR v5.0 (Anti-Detect & Безопасные функции)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "4.5"
+local ScriptVersion = "5.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -35,11 +35,15 @@ local function GetChar()
     return player.Character or player.CharacterAdded:Wait()
 end
 
+-- Переменные для переключателей
 local aimEnabled = false
 local aimFov = 120
+local godModeEnabled = false
+local killAuraEnabled = false
+local espEnabled = false
 
 -- =========================================================
--- МЕНЮ (С ПРОКРУТКОЙ, ЧТОБЫ НИЧЕГО НЕ ВЫЛЕТАЛО)
+-- МЕНЮ (С прокруткой и перетаскиванием)
 -- =========================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
@@ -48,10 +52,12 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 250, 0, 370)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -185)
+MainFrame.Size = UDim2.new(0, 250, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -175)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true  -- Включил перетаскивание
 
 local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
@@ -61,14 +67,14 @@ Title.Text = "swear // spear"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
 
--- Прокручиваемый блок (чтобы кнопки не вылетали)
+-- Прокручиваемый блок
 local ScrollingFrame = Instance.new("ScrollingFrame")
 ScrollingFrame.Parent = MainFrame
 ScrollingFrame.Size = UDim2.new(1, 0, 1, -40)
 ScrollingFrame.Position = UDim2.new(0, 0, 0, 40)
 ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 450) -- Высота скролла
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 400)
 ScrollingFrame.ScrollBarThickness = 4
 
 local function CreateToggle(yPos, label, callback)
@@ -103,63 +109,16 @@ local function CreateToggle(yPos, label, callback)
 end
 
 -- =========================================================
--- ФУНКЦИИ (Античит-Байпас)
+-- ФУНКЦИИ (Работающие и безопасные)
 -- =========================================================
 
--- 1. СУПЕР СКОРОСТЬ (Фикс)
-CreateToggle(50, "Super Speed", function(state)
-    task.spawn(function()
-        while state do
-            local hum = GetChar():FindFirstChild("Humanoid")
-            if hum and hum.WalkSpeed ~= 35 then hum.WalkSpeed = 35 end
-            task.wait(0.05)
-        end
-    end)
-end)
-
--- 2. СУПЕР ПРЫЖОК (Микро-телепорт вверх вместо JumpPower)
-CreateToggle(90, "Super Jump (Velocity)", function(state)
-    task.spawn(function()
-        while state do
-            local root = GetChar():FindFirstChild("HumanoidRootPart")
-            if root then
-                root.Velocity = Vector3.new(root.Velocity.X, 35, root.Velocity.Z)
-            end
-            task.wait(0.05)
-        end
-    end)
-end)
-
--- 3. ИНФИНИТИ ДЖАМП (Агрессивный подъём)
-CreateToggle(130, "Infinite Jump", function(state)
-    task.spawn(function()
-        while state do
-            local root = GetChar():FindFirstChild("HumanoidRootPart")
-            if root and not GetChar().Humanoid.FloorMaterial then
-                root.Velocity = Vector3.new(root.Velocity.X, 40, root.Velocity.Z)
-            end
-            task.wait(0.05)
-        end
-    end)
-end)
-
--- 4. НОУКЛИП (Сверх-быстрое обновление коллизии)
-CreateToggle(170, "Noclip", function(state)
-    task.spawn(function()
-        while state do
-            local root = GetChar():FindFirstChild("HumanoidRootPart")
-            if root and root.CanCollide then root.CanCollide = false end
-            task.wait(0.02)
-        end
-    end)
-end)
-
--- 5. ESP (Боксы сквозь стены)
+-- 1. ESP (Боксы сквозь стены) - БЕЗОПАСНО
 local espObjs = {}
-CreateToggle(210, "ESP", function(state)
+CreateToggle(50, "ESP", function(state)
+    espEnabled = state
     if state then
         task.spawn(function()
-            while true do
+            while espEnabled do
                 for _, v in pairs(espObjs) do v:Remove() end
                 table.clear(espObjs)
                 for _, p in pairs(game.Players:GetPlayers()) do
@@ -189,38 +148,20 @@ CreateToggle(210, "ESP", function(state)
     end
 end)
 
--- 6. КИЛЛ АУРА (Эмуляция удара мышкой)
-CreateToggle(250, "Kill Aura (Spam Click)", function(state)
+-- 2. БЕССМЕРТИЕ (Год-мод) - Исправлен переключатель
+CreateToggle(90, "God Mode", function(state)
+    godModeEnabled = state
     task.spawn(function()
-        while state do
-            local root = GetChar():FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        if (root.Position - p.Character.HumanoidRootPart.Position).Magnitude < 15 then
-                            mouse1click()
-                        end
-                    end
-                end
-            end
-            task.wait(0.05)
-        end
-    end)
-end)
-
--- 7. БЕССМЕРТИЕ (Сброс здоровья)
-CreateToggle(290, "God Mode", function(state)
-    task.spawn(function()
-        while state do
+        while godModeEnabled do
             local hum = GetChar():FindFirstChild("Humanoid")
             if hum and hum.Health < 100 then hum.Health = 100 end
-            task.wait(0.05)
+            task.wait(0.1)
         end
     end)
 end)
 
--- 8. НАСТРАИВАЕМЫЙ АИМ (Вращение тела)
-CreateToggle(330, "Aimbot (Body)", function(state)
+-- 3. АИМБОТ (Плавный, без дёрганий)
+CreateToggle(130, "Aimbot", function(state)
     aimEnabled = state
 end)
 
@@ -245,10 +186,44 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             if closestPart then
-                root.CFrame = CFrame.lookAt(root.Position, closestPart.Position)
+                -- Плавное вращение камеры (без рывков)
+                camera.CFrame = CFrame.new(camera.CFrame.Position, closestPart.Position)
             end
         end
     end
+end)
+
+-- 4. КИЛЛ АУРА (Точный удар, без спама кликов)
+CreateToggle(170, "Kill Aura (Precise)", function(state)
+    killAuraEnabled = state
+    task.spawn(function()
+        while killAuraEnabled do
+            local root = GetChar():FindFirstChild("HumanoidRootPart")
+            if root then
+                local nearestEnemy = nil
+                local nearestDist = 20
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (root.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearestEnemy = p
+                        end
+                    end
+                end
+                if nearestEnemy then
+                    -- Наводим камеру на врага
+                    local targetRoot = nearestEnemy.Character.HumanoidRootPart
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
+                    task.wait(0.05)
+                    -- Делаем один точный клик
+                    mouse1click()
+                    task.wait(0.1)
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
 end)
 
 -- Закрыть по ПКМ
