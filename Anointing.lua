@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v8.0 (Килл Аура с ожиданием Крит-полоски)
+-- SWEAR // SPEAR v9.0 (Пассивный удар по лучу)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "8.0"
+local ScriptVersion = "9.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -37,7 +37,6 @@ end
 
 local espEnabled = false
 local killAuraEnabled = false
-local killAuraSphere = nil
 
 -- =========================================================
 -- МЕНЮ
@@ -49,8 +48,8 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 260, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -125)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -70,7 +69,7 @@ ScrollingFrame.Size = UDim2.new(1, 0, 1, -40)
 ScrollingFrame.Position = UDim2.new(0, 0, 0, 40)
 ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 350)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 300)
 ScrollingFrame.ScrollBarThickness = 4
 
 local function CreateToggle(yPos, label, callback)
@@ -156,70 +155,48 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. КИЛЛ АУРА (С ожиданием заполнения Крит-полоски)
-CreateToggle(90, "Kill Aura (Crit Charge)", function(state)
+-- 2. КИЛЛ АУРА (Пассивная / Без аима / Через Луч)
+CreateToggle(90, "Kill Aura (Passive)", function(state)
     killAuraEnabled = state
     
     if state then
-        -- Создаём визуальный круг вокруг игрока
-        killAuraSphere = Instance.new("Part")
-        killAuraSphere.Name = "KillAuraSphere"
-        killAuraSphere.Anchored = true
-        killAuraSphere.CanCollide = false
-        killAuraSphere.Transparency = 0.7
-        killAuraSphere.Color = Color3.fromRGB(255, 0, 0)
-        killAuraSphere.Material = Enum.Material.Glass
-        killAuraSphere.Size = Vector3.new(25, 25, 25) 
-        killAuraSphere.Shape = Enum.PartType.Ball
-        killAuraSphere.Parent = workspace
-
         task.spawn(function()
-            while killAuraEnabled and killAuraSphere do
+            while killAuraEnabled do
                 local char = GetChar()
                 local root = char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
-                    killAuraSphere.Position = root.Position
+                    -- 1. Пускаем луч строго из центра экрана
+                    local rayOrigin = camera.CFrame.Position
+                    local rayDirection = (mouse.Hit.Position - rayOrigin).Unit * 100
                     
-                    local nearestEnemy = nil
-                    local nearestDist = 12.5
+                    -- 2. Проверяем попадание (Raycast)
+                    local raycastParams = RaycastParams.new()
+                    raycastParams.FilterDescendantsInstances = {char}
+                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
                     
-                    -- 1. Ищем ближайшего врага в радиусе
-                    for _, p in pairs(game.Players:GetPlayers()) do
-                        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                            local targetRoot = p.Character.HumanoidRootPart
-                            local dist = (root.Position - targetRoot.Position).Magnitude
-                            if dist < nearestDist then
-                                nearestDist = dist
-                                nearestEnemy = p
+                    local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                    
+                    if result and result.Instance then
+                        local hitPart = result.Instance
+                        local hitParent = hitPart.Parent
+                        
+                        -- 3. Проверяем, что попали именно в живого врага
+                        if hitParent:IsA("Model") and hitParent:FindFirstChild("Humanoid") and hitParent ~= char then
+                            local targetHum = hitParent:FindFirstChild("Humanoid")
+                            
+                            if targetHum and targetHum.Health > 0 then
+                                -- 4. Имитация Крит-зарядки (задержка + удар)
+                                task.wait(0.4) -- Имитация заполнения полоски
+                                mouse1click() -- Наносим критический удар
+                                task.wait(0.1)
                             end
                         end
                     end
-                    
-                    -- 2. Если враг найден, атакуем с задержкой (имитация заряда Крита)
-                    if nearestEnemy then
-                        local targetRoot = nearestEnemy.Character.HumanoidRootPart
-                        
-                        -- Наводим камеру на врага (плавно, как настоящий игрок)
-                        local lookVector = (targetRoot.Position - camera.CFrame.Position).Unit
-                        camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + lookVector)
-                        
-                        -- Ждём пока полоска заполнится (0.4 секунды)
-                        task.wait(0.4)
-                        
-                        -- Наносим Крит-удар
-                        mouse1click()
-                        task.wait(0.1)
-                    end
                 end
-                task.wait(0.1)
+                task.wait(0.05) -- Быстрая проверка, чтобы не пропустить движущегося врага
             end
         end)
-    else
-        if killAuraSphere then
-            killAuraSphere:Destroy()
-            killAuraSphere = nil
-        end
     end
 end)
 
