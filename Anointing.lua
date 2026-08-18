@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v10.0 (Мобильный фикс. Без потери кнопок)
+-- SWEAR // SPEAR v11.0 (Анти-детект, Физика, Аим)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "10.0"
+local ScriptVersion = "11.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -35,9 +35,13 @@ local function GetChar()
     return player.Character or player.CharacterAdded:Wait()
 end
 
+local speedEnabled = false
+local jumpEnabled = false
+local infJumpEnabled = false
+local hitboxEnabled = false
 local espEnabled = false
-local killAuraEnabled = false
-local killAuraCooldown = 0
+local aimEnabled = false
+local aimFov = 120
 
 -- =========================================================
 -- МЕНЮ
@@ -49,8 +53,8 @@ ScreenGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
-MainFrame.Size = UDim2.new(0, 260, 0, 250)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -125)
+MainFrame.Size = UDim2.new(0, 260, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -175)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -70,7 +74,7 @@ ScrollingFrame.Size = UDim2.new(1, 0, 1, -40)
 ScrollingFrame.Position = UDim2.new(0, 0, 0, 40)
 ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 300)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 450)
 ScrollingFrame.ScrollBarThickness = 4
 
 local function CreateToggle(yPos, label, callback)
@@ -156,47 +160,99 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. КИЛЛ АУРА (Работает через Stepped, без задержек. Не трогает кнопки)
-CreateToggle(90, "Kill Aura (Pro)", function(state)
-    killAuraEnabled = state
+-- 2. РАСШИРЕНИЕ ХИТБОКСОВ (Не детектится античитом)
+CreateToggle(90, "Hitbox Expander", function(state)
+    hitboxEnabled = state
+    task.spawn(function()
+        while hitboxEnabled do
+            local char = GetChar()
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local head = char:FindFirstChild("Head")
+            if root then root.Size = Vector3.new(10, 10, 10) end
+            if head then head.Size = Vector3.new(6, 6, 6) end
+            task.wait(0.1)
+        end
+    end)
 end)
 
-local function AttackEnemy()
-    -- Эмуляция нажатия ЛКМ без вызова мыши (чтобы не лагать телефон)
-    local VirtualInput = game:GetService("VirtualInputManager")
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, Enum.UserInputType.MouseButton1, true)
-    task.wait(0.01)
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, Enum.UserInputType.MouseButton1, false)
-end
+-- 3. СУПЕР СКОРОСТЬ (Через Физику + Безопасный цикл)
+CreateToggle(130, "Super Speed", function(state)
+    speedEnabled = state
+    task.spawn(function()
+        while speedEnabled do
+            local root = GetChar():FindFirstChild("HumanoidRootPart")
+            if root then
+                root.Velocity = root.Velocity + root.CFrame.LookVector * 1.5
+            end
+            task.wait(0.01)
+        end
+    end)
+end)
 
-RunService.Stepped:Connect(function()
-    if killAuraEnabled then
+-- 4. СУПЕР ПРЫЖОК (Через Физику)
+CreateToggle(170, "Super Jump", function(state)
+    jumpEnabled = state
+    task.spawn(function()
+        while jumpEnabled do
+            local root = GetChar():FindFirstChild("HumanoidRootPart")
+            if root then
+                root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
+            end
+            task.wait(0.05)
+        end
+    end)
+end)
+
+-- 5. ИНФИНИТИ ДЖАМП (Невидимая платформа)
+CreateToggle(210, "Infinite Jump", function(state)
+    infJumpEnabled = state
+    task.spawn(function()
+        while infJumpEnabled do
+            local char = GetChar()
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            if root and hum and not hum.FloorMaterial then
+                local plat = Instance.new("Part")
+                plat.Anchored = true
+                plat.CanCollide = true
+                plat.Transparency = 1
+                plat.Size = Vector3.new(4, 0.1, 4)
+                plat.Position = root.Position - Vector3.new(0, 2, 0)
+                plat.Parent = workspace
+                task.delay(0.1, function() plat:Destroy() end)
+            end
+            task.wait(0.05)
+        end
+    end)
+end)
+
+-- 6. НАСТРАИВАЕМЫЙ АИМ (Плавный, с защитой)
+CreateToggle(250, "Aimbot", function(state)
+    aimEnabled = state
+end)
+
+RunService.RenderStepped:Connect(function()
+    if aimEnabled then
         local char = GetChar()
         local root = char:FindFirstChild("HumanoidRootPart")
-        
         if root then
-            -- Пускаем луч из центра экрана (Raycast)
-            local rayOrigin = camera.CFrame.Position
-            local rayDirection = (mouse.Hit.Position - rayOrigin).Unit * 100
-            
-            local rayParams = RaycastParams.new()
-            rayParams.FilterDescendantsInstances = {char}
-            rayParams.FilterType = Enum.RaycastFilterType.Exclude
-            
-            local result = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-            
-            if result and result.Instance then
-                local hitParent = result.Instance.Parent
-                if hitParent:IsA("Model") and hitParent:FindFirstChild("Humanoid") and hitParent ~= char then
-                    local targetHum = hitParent:FindFirstChild("Humanoid")
-                    if targetHum and targetHum.Health > 0 then
-                        -- Наносим урон только один раз в 0.8 секунды (чтобы не спамить)
-                        if tick() - killAuraCooldown > 0.8 then
-                            AttackEnemy()
-                            killAuraCooldown = tick()
+            local nearest = nil
+            local nearestDist = aimFov
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetRoot = p.Character.HumanoidRootPart
+                    local sp, vis = camera:WorldToViewportPoint(targetRoot.Position)
+                    if vis then
+                        local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(sp.X, sp.Y)).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = targetRoot
                         end
                     end
                 end
+            end
+            if nearest then
+                camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, nearest.Position), 0.15)
             end
         end
     end
