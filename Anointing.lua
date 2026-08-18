@@ -1,9 +1,9 @@
 -- =========================================================
--- SWEAR // SPEAR v7.0 (Визуальная Килл Аура + Криты)
+-- SWEAR // SPEAR v8.0 (Килл Аура с ожиданием Крит-полоски)
 -- =========================================================
 
 local ScriptName = "swear // spear"
-local ScriptVersion = "7.0"
+local ScriptVersion = "8.0"
 local RawURL = "https://raw.githubusercontent.com/ktoa4451-bot/-/main/Anointing.lua"
 
 -- =========================================================
@@ -26,6 +26,7 @@ if CheckForUpdate() then return end
 -- ПЕРЕМЕННЫЕ
 -- =========================================================
 local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -155,8 +156,8 @@ CreateToggle(50, "ESP", function(state)
     end
 end)
 
--- 2. КИЛЛ АУРА (Визуальный круг + Криты)
-CreateToggle(90, "Kill Aura", function(state)
+-- 2. КИЛЛ АУРА (С ожиданием заполнения Крит-полоски)
+CreateToggle(90, "Kill Aura (Crit Charge)", function(state)
     killAuraEnabled = state
     
     if state then
@@ -168,42 +169,53 @@ CreateToggle(90, "Kill Aura", function(state)
         killAuraSphere.Transparency = 0.7
         killAuraSphere.Color = Color3.fromRGB(255, 0, 0)
         killAuraSphere.Material = Enum.Material.Glass
-        killAuraSphere.Size = Vector3.new(25, 25, 25) -- Радиус 12.5 метров
+        killAuraSphere.Size = Vector3.new(25, 25, 25) 
         killAuraSphere.Shape = Enum.PartType.Ball
         killAuraSphere.Parent = workspace
 
-        -- Запускаем логику убийства
         task.spawn(function()
             while killAuraEnabled and killAuraSphere do
                 local char = GetChar()
                 local root = char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
-                    -- Передвигаем круг за персонажем
                     killAuraSphere.Position = root.Position
                     
-                    -- Проверяем врагов внутри круга
+                    local nearestEnemy = nil
+                    local nearestDist = 12.5
+                    
+                    -- 1. Ищем ближайшего врага в радиусе
                     for _, p in pairs(game.Players:GetPlayers()) do
                         if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                             local targetRoot = p.Character.HumanoidRootPart
                             local dist = (root.Position - targetRoot.Position).Magnitude
-                            
-                            -- Если враг внутри круга (радиус 12.5)
-                            if dist < 12.5 then
-                                -- Мгновенный Крит (3 удара за 0.01 сек)
-                                for i = 1, 3 do
-                                    mouse1click()
-                                end
-                                task.wait(0.01)
+                            if dist < nearestDist then
+                                nearestDist = dist
+                                nearestEnemy = p
                             end
                         end
+                    end
+                    
+                    -- 2. Если враг найден, атакуем с задержкой (имитация заряда Крита)
+                    if nearestEnemy then
+                        local targetRoot = nearestEnemy.Character.HumanoidRootPart
+                        
+                        -- Наводим камеру на врага (плавно, как настоящий игрок)
+                        local lookVector = (targetRoot.Position - camera.CFrame.Position).Unit
+                        camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + lookVector)
+                        
+                        -- Ждём пока полоска заполнится (0.4 секунды)
+                        task.wait(0.4)
+                        
+                        -- Наносим Крит-удар
+                        mouse1click()
+                        task.wait(0.1)
                     end
                 end
                 task.wait(0.1)
             end
         end)
     else
-        -- Уничтожаем круг при выключении
         if killAuraSphere then
             killAuraSphere:Destroy()
             killAuraSphere = nil
